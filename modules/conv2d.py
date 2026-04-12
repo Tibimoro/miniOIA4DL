@@ -15,6 +15,8 @@ class Conv2D(Layer):
         # MODIFICAR: Añadir nuevo if-else para otros algoritmos de convolución
         if conv_algo == 0:
             self.mode = 'direct' 
+        elif conv_algo == 1:
+            self.mode = 'im2col'    
         else:
             print(f"Algoritmo {conv_algo} no soportado aún")
             self.mode = 'direct' 
@@ -60,6 +62,8 @@ class Conv2D(Layer):
         # PISTA: Usar estos if-else si implementas más algoritmos de convolución
         if self.mode == 'direct':
             return self._forward_direct(input)
+        elif self.mode == 'im2col':
+            return self._forward_im2col(input)
         else:
             raise ValueError("Mode must be 'direct")
 
@@ -107,6 +111,33 @@ class Conv2D(Layer):
                 output[b, out_c] += self.biases[out_c]
 
         return output
+    
+    def _forward_im2col(self, input):
+        batch_size, in_c, in_h, in_w = input.shape
+        k_h = k_w = self.kernel_size
+        if self.padding > 0:
+            input = np.pad(input,
+                           ((0,0),(0,0),(self.padding,self.padding),(self.padding,self.padding)),
+                           mode='constant').astype(np.float32)
+
+        out_h = (input.shape[2] - k_h) // self.stride + 1
+        out_w = (input.shape[3] - k_w) // self.stride + 1
+
+        col = np.zeros((batch_size, in_c, k_h, k_w, out_h, out_w), dtype=np.float32)
+        for y in range(k_h):
+            y_max = y + self.stride * out_h
+            for x in range(k_w):
+                x_max = x + self.stride * out_w
+                col[:, :, y, x, :, :] = input[:, :, y:y_max:self.stride, x:x_max:self.stride]
+
+        col = col.transpose(0, 4, 5, 1, 2, 3).reshape(batch_size * out_h * out_w, -1)
+        kernels_reshaped = self.kernels.reshape(self.out_channels, -1)
+
+        out = col @ kernels_reshaped.T + self.biases
+
+        out = out.reshape(batch_size, out_h, out_w, self.out_channels)
+        return out.transpose(0, 3, 1, 2).astype(np.float32)
+
 
     def _backward_direct(self, grad_output, learning_rate):
         batch_size, _, out_h, out_w = grad_output.shape
