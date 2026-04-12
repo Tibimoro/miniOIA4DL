@@ -1,6 +1,7 @@
 from modules.layer import Layer
 from modules.utils import *
-#from cython_modules.im2col import im2col_forward_cython
+from cython_modules.im2col import im2col_forward_cython
+
 
 import numpy as np
 from numba import njit
@@ -42,6 +43,8 @@ class Conv2D(Layer):
             self.mode = 'im2col'  
         elif conv_algo == 2:
             self.mode = 'numba'
+        elif conv_algo == 3:
+            self.mode = 'cython'
         else:
             print(f"Algoritmo {conv_algo} no soportado aún")
             self.mode = 'direct' 
@@ -91,6 +94,8 @@ class Conv2D(Layer):
             return self._forward_im2col(input)
         elif self.mode == 'numba':
             return self._forward_numba(input)
+        elif self.mode == 'cython':
+            return self._forward_cython(input)
         else:
             raise ValueError("Mode must be 'direct")
 
@@ -179,6 +184,16 @@ class Conv2D(Layer):
 
         return _numba_conv(input, self.kernels, self.biases, out_h, out_w,
                            self.stride, k_h, k_w)
+    
+    
+    def _forward_cython(self, input):
+        return im2col_forward_cython(
+        input.astype(np.float32),
+        self.kernels,
+        self.biases,
+        self.stride,
+        self.padding
+    )
 
 
     def _backward_direct(self, grad_output, learning_rate):
