@@ -1,3 +1,8 @@
+# --- INICIO BLOQUE GENERADO CON IA ---
+# Implementación Cython desarrollada con asistencia de IA.
+
+
+
 import numpy as np
 cimport numpy as np
 
@@ -44,3 +49,5 @@ def im2col_forward_cython(
             output[b, oc] += biases[oc]
 
     return output
+
+# --- FIN BLOQUE GENERADO CON IA ---

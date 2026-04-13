@@ -6,6 +6,27 @@ from cython_modules.im2col import im2col_forward_cython
 import numpy as np
 from numba import njit
 
+@njit
+def _numba_conv(input, kernels, biases, out_h, out_w, stride, k_h, k_w):
+    batch_size = input.shape[0]
+    out_channels = kernels.shape[0]
+    in_channels = kernels.shape[1]
+    output = np.zeros((batch_size, out_channels, out_h, out_w), dtype=np.float32)
+
+    for b in range(batch_size):
+        for out_c in range(out_channels):
+            for in_c in range(in_channels):
+                for i in range(out_h):
+                    row_start = i * stride
+                    for kh in range(k_h):
+                        for kw in range(k_w):
+                            for j in range(out_w):
+                                output[b, out_c, i, j] += (
+                                    input[b, in_c, row_start + kh, j * stride + kw]
+                                    * kernels[out_c, in_c, kh, kw]
+                                    )
+            output[b, out_c] += biases[out_c]
+    return output
 
 
 class Conv2D(Layer):
@@ -157,7 +178,8 @@ class Conv2D(Layer):
     def _forward_numba(self, input):
         batch_size, in_c, in_h, in_w = input.shape
         k_h = k_w = self.kernel_size
-
+    # --- INICIO BLOQUE GENERADO CON IA ---
+    # con asistencia de IA para la generación y corrección de código.
         if self.padding > 0:
             input = np.pad(input,
                            ((0,0),(0,0),(self.padding,self.padding),(self.padding,self.padding)),
@@ -168,7 +190,7 @@ class Conv2D(Layer):
 
         return _numba_conv(input, self.kernels, self.biases, out_h, out_w,
                            self.stride, k_h, k_w)
-    
+    # --- FIN BLOQUE GENERADO CON IA 
     
     def _forward_cython(self, input):
         return im2col_forward_cython(
@@ -266,24 +288,3 @@ class Conv2D(Layer):
         return grad_input
 
     # PISTA: Se te ocurren otros algoritmos de convolución?
-@njit
-def _numba_conv(input, kernels, biases, out_h, out_w, stride, k_h, k_w):
-    batch_size = input.shape[0]
-    out_channels = kernels.shape[0]
-    in_channels = kernels.shape[1]
-    output = np.zeros((batch_size, out_channels, out_h, out_w), dtype=np.float32)
-
-    for b in range(batch_size):
-        for out_c in range(out_channels):
-            for in_c in range(in_channels):
-                for i in range(out_h):
-                    row_start = i * stride
-                    for kh in range(k_h):
-                        for kw in range(k_w):
-                            for j in range(out_w):
-                                output[b, out_c, i, j] += (
-                                    input[b, in_c, row_start + kh, j * stride + kw]
-                                    * kernels[out_c, in_c, kh, kw]
-                                    )
-            output[b, out_c] += biases[out_c]
-    return output
